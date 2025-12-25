@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#f97316">
+    <title>Barcode Scanner Pro</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    
+    <!-- ============================================
+         SETUP SCREEN
+         ============================================ -->
+    <div id="setup" class="screen">
+        
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                        <rect width="48" height="48" rx="12" fill="url(#gradient)"/>
+                        <defs>
+                            <linearGradient id="gradient" x1="0" y1="0" x2="48" y2="48">
+                                <stop offset="0%" stop-color="#f97316"/>
+                                <stop offset="100%" stop-color="#ea580c"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Barcode icon -->
+                        <rect x="10" y="16" width="2" height="16" fill="white" rx="0.5"/>
+                        <rect x="14" y="16" width="1" height="16" fill="white" rx="0.5"/>
+                        <rect x="17" y="16" width="3" height="16" fill="white" rx="0.5"/>
+                        <rect x="22" y="16" width="1.5" height="16" fill="white" rx="0.5"/>
+                        <rect x="25" y="16" width="2" height="16" fill="white" rx="0.5"/>
+                        <rect x="29" y="16" width="1" height="16" fill="white" rx="0.5"/>
+                        <rect x="32" y="16" width="2.5" height="16" fill="white" rx="0.5"/>
+                        <rect x="36" y="16" width="2" height="16" fill="white" rx="0.5"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Barcode Scanner</h1>
+                    <p>Real-time product detection</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Container -->
+        <div class="container">
+            
+            <!-- Configuration Card -->
+            <div class="card">
+                <div class="card-header">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2v6m0 6v6m5.2-15.2l-4.2 4.2m-1 1-4.2 4.2M23 12h-6m-6 0H5m15.2 5.2l-4.2-4.2m-1-1-4.2-4.2"/>
+                    </svg>
+                    <h2>Scanner Configuration</h2>
+                </div>
+
+                <!-- Mode Selection -->
+                <div class="form-group">
+                    <label for="mode">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M12 1v6m0 6v6"/>
+                        </svg>
+                        Detection Mode
+                    </label>
+                    <select id="mode" class="input" onchange="toggleMode()">
+                        <option value="catalog">Product Catalog</option>
+                        <option value="upc-only">Direct UPC Codes</option>
+                    </select>
+                    <small class="hint">Choose how to identify products</small>
+                </div>
+
+                <!-- Category Filters (shown in catalog mode) -->
+                <div id="category-section">
+                    <div class="form-group">
+                        <label for="main-category">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="7" height="7"/>
+                                <rect x="14" y="3" width="7" height="7"/>
+                                <rect x="14" y="14" width="7" height="7"/>
+                                <rect x="3" y="14" width="7" height="7"/>
+                            </svg>
+                            Main Category
+                        </label>
+                        <select id="main-category" class="input" onchange="loadSubcategories()">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="subcategory">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                            Subcategory
+                        </label>
+                        <select id="subcategory" class="input">
+                            <option value="">All Subcategories</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Search Input -->
+                <div class="form-group">
+                    <label for="queries">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <span id="search-label">Search Products</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="queries"
+                        class="input"
+                        placeholder="e.g., Chocolate Cookies, Milk"
+                    >
+                    <small class="hint" id="search-hint">Separate multiple items with commas</small>
+                </div>
+
+                <!-- Start Button -->
+                <button onclick="startScanning()" class="btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    <span>Start Camera</span>
+                </button>
+            </div>
+
+            <!-- Info Cards -->
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-icon">⚡</div>
+                    <h3>Real-Time</h3>
+                    <p>Instant barcode detection</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">🎯</div>
+                    <h3>Accurate</h3>
+                    <p>Smart product matching</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon">🔒</div>
+                    <h3>Private</h3>
+                    <p>Local processing only</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="status-text">Ready to scan</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+         CAMERA VIEW
+         ============================================ -->
+    <div id="camera-view" class="screen hidden">
+        <!-- Video Elements -->
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas" hidden></canvas>
+        <canvas id="detection-canvas"></canvas>
+
+        <!-- Top Bar -->
+        <div class="camera-header">
+            <div class="camera-status">
+                <div class="pulse-dot"></div>
+                <span id="camera-status-text">Scanning...</span>
+            </div>
+            <div class="fps-counter">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                    <polyline points="17 6 23 6 23 12"/>
+                </svg>
+                <span id="fps">0 FPS</span>
+            </div>
+        </div>
+
+        <!-- Detection Overlay -->
+        <div id="overlay" class="detection-overlay">
+            <div id="detections"></div>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="camera-footer">
+            <button onclick="stopScanning()" class="btn-stop">
+                <div class="stop-icon"></div>
+                <span>Stop Scanning</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

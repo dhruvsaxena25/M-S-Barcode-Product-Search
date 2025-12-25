@@ -1,0 +1,34 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  detailed:
+    class: logging.Formatter
+    format: "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s"
+  simple:
+    class: logging.Formatter
+    format: "%(levelname)s - %(message)s"
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: detailed
+    stream: ext://sys.stdout
+
+  file:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: barcode_app.log
+    mode: a
+
+loggers:
+  barcode_app:
+    level: DEBUG
+    handlers: [console, file]
+    propagate: false
+
+root:
+  level: WARNING
+  handlers: [console]

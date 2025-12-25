@@ -1,0 +1,50 @@
+services:
+  barcode-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    
+    container_name: barcode-scanner-api
+    
+    ports:
+      - "8000:8000"
+    
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=info
+    
+    volumes:
+      # Mount frontend directory (read-only for production)
+      - ./frontend:/app/frontend:ro
+      
+      # Mount products.json (read-only)
+      - ./backend/products.json:/app/products.json:ro
+      
+      # Optional: Development mode (uncomment for hot-reload)
+      # - ./backend:/app
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    networks:
+      - scanner-network
+    
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  scanner-network:
+    driver: bridge
