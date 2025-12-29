@@ -46,9 +46,9 @@ except Exception as e:
     catalog = None
     
 # ============================================
-frontend_path = Path("../frontend")  ## ../ remove for docker
+frontend_path = Path("frontend")  ## ../ remove for docker
 if frontend_path.exists():
-    app.mount("/static", StaticFiles(directory="../frontend"), name="frontend") ## ../ remove for docker
+    app.mount("/static", StaticFiles(directory="frontend"), name="frontend") ## ../ remove for docker
     logger.info(f"✅ Mounted frontend: {frontend_path.absolute()}")
 else:
     logger.warning(f"⚠️ Frontend not found: {frontend_path.absolute()}")
@@ -60,7 +60,7 @@ else:
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve API landing page from frontend folder"""
-    landing_page = Path("../frontend/api-home.html") ## ../ remove for docker
+    landing_page = Path("frontend/api-home.html") ## ../ remove for docker
     
     if landing_page.exists():
         return landing_page.read_text(encoding='utf-8')
@@ -177,12 +177,12 @@ async def websocket_scan(websocket: WebSocket):
         init_data = await websocket.receive_json()
         queries = init_data.get("queries", [])
         mode = init_data.get("mode", "catalog")
-        main_category = init_data.get("main_category")  
-        subcategory = init_data.get("subcategory")     
+        main_category = init_data.get("main_category")
+        subcategory = init_data.get("subcategory")
         
         logger.info(f"🔍 Queries: {queries}, Mode: {mode}, Category: {main_category}/{subcategory}")
         
-        # Step 2: Set filter with category
+        # Step 2: Set filter
         success, matched = scanner.set_filter(
             queries, 
             upc_only=(mode == "upc-only"),
@@ -206,7 +206,7 @@ async def websocket_scan(websocket: WebSocket):
         
         logger.info(f"✅ Allowed UPCs: {scanner._allowed_upcs}")
         
-        # Step 4: Process frames
+        # Step 4: Process frames with wildcard matching
         frame_count = 0
         
         while True:
@@ -225,7 +225,7 @@ async def websocket_scan(websocket: WebSocket):
                         logger.warning(f"Frame {frame_count}: Failed to decode")
                         continue
                     
-                    # Process frame
+                    # Process frame (now with wildcard matching)
                     matches = scanner._process_frame(frame, display=False)
                     
                     if frame_count % 10 == 0:
@@ -246,7 +246,9 @@ async def websocket_scan(websocket: WebSocket):
                             # Find matching barcode for coordinates
                             barcode_rect = None
                             for barcode in barcodes:
-                                if barcode.data.decode('utf-8') == m.get("upc"):
+                                scanned_code = barcode.data.decode('utf-8')
+                                # Match if stored UPC is in scanned code
+                                if m.get("upc") in scanned_code:
                                     barcode_rect = {
                                         "x": barcode.rect.left,
                                         "y": barcode.rect.top,
@@ -256,7 +258,8 @@ async def websocket_scan(websocket: WebSocket):
                                     break
                             
                             det = {
-                                "upc": m.get("upc"),
+                                "upc": m.get("upc"),  # Stored UPC
+                                "raw_upc": m.get("raw_upc"),  # Full scanned code
                                 "product_name": m.get("product", {}).get("name", f"UPC: {m.get('upc')}"),
                                 "match_type": m.get("match_type", "full"),
                                 "rect": barcode_rect

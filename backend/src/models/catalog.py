@@ -1,3 +1,8 @@
+"""
+Product Catalog Module
+Manages product database with nested category structure and wildcard UPC matching.
+"""
+
 import json
 import logging
 from pathlib import Path
@@ -10,7 +15,9 @@ logger = logging.getLogger(__name__)
 
 class ProductCatalog:
     """
-    Catalog supporting nested category structure:
+    Product catalog supporting nested category structure with wildcard UPC matching.
+    
+    JSON Structure:
     {
       "ambient": {
         "Biscuits": [
@@ -25,10 +32,16 @@ class ProductCatalog:
     """
     
     def __init__(self, products_file: Path):
+        """
+        Initialize product catalog from JSON file.
+        
+        Args:
+            products_file: Path to products.json file
+        """
         self.products_file = products_file
         self.products: List[Product] = []
         
-        # Indexes
+        # Indexes for fast lookup
         self._by_upc: Dict[str, Product] = {}
         self._by_name: Dict[str, Product] = {}
         
@@ -37,8 +50,57 @@ class ProductCatalog:
         
         self._load()
     
+    # ============================================
+    # WILDCARD MATCHING UTILITIES
+    # ============================================
+    
+    @staticmethod
+    def match_upc_wildcard(scanned_upc: str, stored_upc: str) -> bool:
+        """
+        Check if scanned UPC contains stored UPC as substring.
+        
+        Args:
+            scanned_upc: Full barcode scanned from camera
+            stored_upc: Product UPC stored in catalog
+            
+        Returns:
+            True if stored_upc is found anywhere in scanned_upc
+            
+        Examples:
+            >>> ProductCatalog.match_upc_wildcard("101526293771070000", "29377107")
+            True
+        """
+        return stored_upc in scanned_upc
+    
+    @staticmethod
+    def find_matching_upc(scanned_upc: str, allowed_upcs: Set[str]) -> Optional[str]:
+        """
+        Find which stored UPC matches the scanned barcode.
+        
+        Args:
+            scanned_upc: Full barcode string from scanner
+            allowed_upcs: Set of valid product UPCs to match against
+            
+        Returns:
+            Matched stored UPC or None if no match found
+            
+        Examples:
+            >>> ProductCatalog.find_matching_upc("101526293771070000", {"29377107", "12345678"})
+            "29377107"
+        """
+        for stored_upc in allowed_upcs:
+            if ProductCatalog.match_upc_wildcard(scanned_upc, stored_upc):
+                return stored_upc
+        return None
+    
+    # ============================================
+    # CATALOG LOADING
+    # ============================================
+    
     def _load(self):
-        """Load products from nested JSON structure"""
+        """
+        Load products from nested JSON structure.
+        """
         try:
             with self.products_file.open("r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -66,7 +128,7 @@ class ProductCatalog:
                             logger.warning(f"Skipping invalid product: {item}")
                             continue
                         
-                        # Create Product with category metadata
+                        # Create Product
                         product_data = {
                             "name": item["name"],
                             "upc": str(item["upc"])
@@ -90,7 +152,6 @@ class ProductCatalog:
                 f"{len(self.categories)} main categories"
             )
             
-            # Log category summary
             for main_cat, subcats in self.categories.items():
                 total = sum(len(prods) for prods in subcats.values())
                 logger.info(f"  📦 {main_cat}: {total} products in {len(subcats)} subcategories")
@@ -100,7 +161,7 @@ class ProductCatalog:
             raise
     
     def _build_indexes(self):
-        """Build lookup indexes"""
+        """Build lookup indexes for fast UPC and name searches."""
         self._by_upc.clear()
         self._by_name.clear()
         
@@ -108,12 +169,34 @@ class ProductCatalog:
             self._by_upc[str(product.upc)] = product
             self._by_name[product.name.lower()] = product
     
-    def find_by_upc(self, upc: str) -> Optional[Product]:
-        """Find product by UPC code"""
-        return self._by_upc.get(str(upc))
+    # ============================================
+    # SEARCH METHODS
+    # ============================================
+    
+    def find_by_upc(self, upc: str, wildcard: bool = False) -> Optional[Product]:
+        """
+        Find product by UPC code with optional wildcard matching.
+        
+        Args:
+            upc: UPC code to search for
+            wildcard: If True, use substring matching
+            
+        Returns:
+            Matched Product or None
+        """
+        if not wildcard:
+            return self._by_upc.get(str(upc))
+        
+        # Wildcard matching
+        for stored_upc, product in self._by_upc.items():
+            if self.match_upc_wildcard(upc, stored_upc):
+                logger.info(f"🔍 Wildcard match: {upc} contains → {stored_upc}")
+                return product
+        
+        return None
     
     def find_by_name(self, name: str) -> Optional[Product]:
-        """Find product by exact name (case-insensitive)"""
+        """Find product by exact name (case-insensitive)."""
         return self._by_name.get(name.lower())
     
     def find_by_category(
@@ -122,28 +205,25 @@ class ProductCatalog:
         subcategory: Optional[str] = None
     ) -> List[Product]:
         """
-        Get products by category
+        Get products by category filter.
         
         Args:
-            main_category: Main category filter (e.g., "ambient")
-            subcategory: Subcategory filter (e.g., "Biscuits")
+            main_category: Main category filter
+            subcategory: Subcategory filter
         
         Returns:
             List of matching products
         """
         if main_category and subcategory:
-            # Specific subcategory
             return self.categories.get(main_category, {}).get(subcategory, [])
         
         elif main_category:
-            # All products in main category
             results = []
             for subcat_products in self.categories.get(main_category, {}).values():
                 results.extend(subcat_products)
             return results
         
         else:
-            # All products
             return self.products.copy()
     
     def find_multiple(
@@ -153,7 +233,7 @@ class ProductCatalog:
         subcategory: Optional[str] = None
     ) -> List[Product]:
         """
-        Find products matching queries with optional category filter
+        Find products matching queries with optional category filter.
         
         Args:
             queries: List of product names or UPC codes
@@ -163,7 +243,6 @@ class ProductCatalog:
         Returns:
             List of matched products with _match_type attribute
         """
-        # Get candidate products from category
         candidates = self.find_by_category(main_category, subcategory)
         
         if not candidates:
@@ -180,9 +259,8 @@ class ProductCatalog:
             
             matched = False
             
-            # 1. Exact UPC match → FULL (GREEN)
+            # 1. Exact UPC match → FULL
             if product := self.find_by_upc(query):
-                # Check if product is in category filter
                 if product in candidates:
                     if product.upc not in seen_upcs:
                         product._match_type = "full"
@@ -191,7 +269,7 @@ class ProductCatalog:
                         logger.info(f"✅ UPC match: '{query}' → '{product.name}'")
                         matched = True
             
-            # 2. Exact name match → FULL (GREEN)
+            # 2. Exact name match → FULL
             elif product := self.find_by_name(query):
                 if product in candidates:
                     if product.upc not in seen_upcs:
@@ -201,7 +279,7 @@ class ProductCatalog:
                         logger.info(f"✅ Name match: '{query}' → '{product.name}'")
                         matched = True
             
-            # 3. Partial match → PARTIAL (ORANGE)
+            # 3. Partial match → PARTIAL
             if not matched:
                 lower_query = query.lower()
                 for product in candidates:
@@ -222,24 +300,41 @@ class ProductCatalog:
         
         return results
     
-    def get_categories(self) -> Dict[str, List[str]]:
+    def find_by_scanned_upc(self, scanned_upc: str) -> Optional[Product]:
         """
-        Get all categories and subcategories
+        Find product by scanned UPC using wildcard matching.
         
+        Args:
+            scanned_upc: Full barcode from scanner
+            
         Returns:
-            Dict mapping main categories to list of subcategories
+            Matched Product or None
         """
+        # Try exact match first
+        product = self.find_by_upc(scanned_upc, wildcard=False)
+        if product:
+            return product
+        
+        # Fall back to wildcard
+        return self.find_by_upc(scanned_upc, wildcard=True)
+    
+    # ============================================
+    # UTILITY METHODS
+    # ============================================
+    
+    def get_categories(self) -> Dict[str, List[str]]:
+        """Get all categories and subcategories."""
         return {
             main_cat: list(subcats.keys())
             for main_cat, subcats in self.categories.items()
         }
     
     def all_upcs(self) -> Set[str]:
-        """Get all UPC codes in catalog"""
+        """Get all UPC codes in catalog."""
         return set(self._by_upc.keys())
     
     def get_stats(self) -> Dict:
-        """Get catalog statistics"""
+        """Get catalog statistics."""
         stats = {
             "total_products": len(self.products),
             "main_categories": len(self.categories),
@@ -257,3 +352,24 @@ class ProductCatalog:
             }
         
         return stats
+
+
+# ============================================
+# TESTING
+# ============================================
+
+if __name__ == "__main__":
+    """Test wildcard matching."""
+    print("\n🧪 Testing Wildcard UPC Matching:")
+    print("=" * 50)
+    
+    test_cases = [
+        ("101526293771070000", "29377107", True),
+        ("29377107", "29377107", True),
+        ("12345678", "29377107", False),
+    ]
+    
+    for scanned, stored, expected in test_cases:
+        result = ProductCatalog.match_upc_wildcard(scanned, stored)
+        status = "✅" if result == expected else "❌"
+        print(f"{status} {scanned:20s} contains {stored:10s} → {result}")
